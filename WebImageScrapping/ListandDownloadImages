@@ -1,0 +1,108 @@
+#!/bin/bash
+
+check_url () {
+	regex='(https?|ftp|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]'
+
+	string=$1
+
+	if [[ $string =~ $regex ]]
+	then
+		echo "url"
+	else
+		echo "directory"
+	fi
+}
+
+listimgfilesinurl () {
+
+	now=$(date +"%m_%d_%Y")
+	echo $now
+
+	urltomodify=$1
+	modifiedurl="${urltomodify#https://}"
+	modifiedurl="${modifiedurl#http://}"
+	modifiedurl="${modifiedurl//['/']/_}"
+	
+	# echo $modifiedurl
+
+	echo "${3}_${modifiedurl}_${2}_${now}.txt"
+
+	#touch "$modifiedurl_$now.txt"
+	#touch "$3_$modifiedurl_$2_$now.txt"
+
+	wget -d -r -p -nd -N --spider -e robots=off --no-check-certificate --no-parent \
+	$1  2>&1 | grep " -> " \
+	| grep -Ev "\/\?C=" \
+	| sed "s/.* -> //" \
+	| grep $1 > "${3}_${modifiedurl}_${now}.txt"
+
+	grep $2 "${3}_${modifiedurl}_${now}.txt" | uniq > "${3}_${modifiedurl}_${2}_${now}.txt"
+
+}
+
+listimgfilesindir () {
+
+	now=$(date +"%m_%d_%Y")
+	echo $now
+
+	dirtomodify=$1
+	modifieddir="${dirtomodify//['/']/_}"
+
+	ls -R $1 | grep -B 1 $2 > "${3}_${modifieddir}${2}_${now}.txt"
+}
+
+downloadimgfromurl () {
+
+	now=$(date +"%m_%d_%Y")
+	echo $now
+
+	urltomodify=$1
+	modifiedurl="${urltomodify#https://}"
+	modifiedurl="${modifiedurl#http://}"
+	modifiedurl="${modifiedurl//['/']/_}"
+
+	input="${3}_${modifiedurl}_${2}_${now}.txt"
+	mkdir  "${3}_${modifiedurl}_${2}_${now}"
+	
+	while IFS= read -r var
+	do
+		# echo "$var"
+		wget -O "$user_$modifiedurl_$ext_$now" "$var"
+
+	done < "$input"
+	
+#wget -P robots=off "$user_$modifiedurl_$ext_$now" "$var"
+
+}
+
+
+# main function starts here 
+
+read -r -p "Username: " user
+read -r -p "URL / Directory path: " url
+read -r -p "Image extension to search for: " ext
+read -r -p "You want to Download files in case of url? [y/n]: " download
+
+echo $user
+echo $url
+echo $ext 
+echo $download
+
+isurl=$(check_url $url)
+
+#echo $isurl
+
+if [ $isurl == "url" ]
+then
+	listimgfilesinurl $url $ext $user
+
+	if [ $download == y ]
+	then
+		downloadimgfromurl $url $ext $user
+	fi
+else
+	listimgfilesindir $url $ext $user
+fi
+
+
+
